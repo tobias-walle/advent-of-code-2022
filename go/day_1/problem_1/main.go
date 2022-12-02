@@ -7,6 +7,11 @@ import (
 	"strconv"
 )
 
+type elf struct {
+	number   int
+	calories int
+}
+
 func main() {
 	input_file_path := os.Args[1]
 	if input_file_path == "" {
@@ -16,37 +21,32 @@ func main() {
 	fmt.Println("Read", input_file_path)
 	next_line := read_file_by_line(input_file_path)
 
-	calories := []int{0}
-	elf := 0
+	var max elf
+	current := elf{number: 1, calories: 0}
 	for {
 		line, eof := next_line()
-		if eof {
-			break
-		}
-
-		if line == "" {
-			// Next Elf
-			elf++
-			calories = append(calories, 0)
+		if line != "" {
+			// Add calories to current elf
+			int_line, err := strconv.Atoi(line)
+			check(err)
+			current.calories += int_line
 			continue
 		}
 
-		// Add calories to current elf
-		line_int, err := strconv.Atoi(line)
-		check(err)
-		calories[elf] += line_int
-	}
+		// Check if calories is in the top 3
+		if current.calories > max.calories {
+			// Save the new best result
+			max = current
+		}
 
-	max_elf := 0
-	max_calories := calories[0]
-	for elf, calories_of_elf := range calories {
-		if calories_of_elf > max_calories {
-			max_calories = calories_of_elf
-			max_elf = elf
+		// Next Elf
+		current = elf{number: current.number + 1, calories: 0}
+		if eof {
+			break
 		}
 	}
 
-	fmt.Printf("Elf %d has the most calories:\n%d", max_elf+1, max_calories)
+	fmt.Printf("Elf %d has the most calories: %d\n", max.number, max.calories)
 }
 
 func read_file_by_line(path string) func() (line string, eof bool) {

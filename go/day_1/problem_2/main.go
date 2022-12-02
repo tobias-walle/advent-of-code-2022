@@ -3,10 +3,14 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/thoas/go-funk"
 	"os"
 	"strconv"
 )
+
+type elf struct {
+	number   int
+	calories int
+}
 
 func main() {
 	input_file_path := os.Args[1]
@@ -17,60 +21,48 @@ func main() {
 	fmt.Println("Read", input_file_path)
 	next_line := read_file_by_line(input_file_path)
 
-	calories := []int{0}
-	elf := 0
+	// Top 3 max calories, starting with the higher value
+	var top [3]elf
+	current := elf{number: 1, calories: 0}
 	for {
 		line, eof := next_line()
-		if eof {
-			break
-		}
-
-		if line == "" {
-			// Next Elf
-			elf++
-			calories = append(calories, 0)
+		if line != "" {
+			// Add calories to current elf
+			int_line, err := strconv.Atoi(line)
+			check(err)
+			current.calories += int_line
 			continue
 		}
 
-		// Add calories to current elf
-		line_int, err := strconv.Atoi(line)
-		check(err)
-		calories[elf] += line_int
-	}
-
-	type result struct {
-		elf      int
-		calories int
-	}
-
-	// Top 3 max calories, starting with the higher value
-	var results [3]result
-	for elf, calories_of_elf := range calories {
-		for i, max := range results {
-			if calories_of_elf > max.calories {
+		// Check if calories is in the top 3
+		for i, max := range top {
+			if current.calories > max.calories {
 				// Shift the best result to the right
-				if i+1 < len(results) {
-					results[i+1] = results[i]
+				if i+1 < len(top) {
+					top[i+1] = top[i]
 				}
 				// Save the new best result
-				results[i] = result{
-					elf:      elf,
-					calories: calories_of_elf,
-				}
+				top[i] = current
 				break
 			}
 		}
+
+		// Next Elf
+		current = elf{number: current.number + 1, calories: 0}
+		if eof {
+			break
+		}
 	}
 
-	var result_calories [3]int
-	for i, result := range results {
-		result_calories[i] = result.calories
+	sum_calories := 0
+	for _, elf := range top {
+		sum_calories += elf.calories
 	}
 
-	fmt.Printf("Elf %d has the most calories: %d\n", results[0].elf+1, results[0].calories)
-	fmt.Printf("Elf %d has the second most calories: %d\n", results[1].elf+1, results[1].calories)
-	fmt.Printf("Elf %d has the third most calories: %d\n", results[2].elf+1, results[2].calories)
-	fmt.Printf("Sum: %d\n", funk.SumInt(result_calories[:]))
+	fmt.Printf("Elf %d has the most calories: %d\n", top[0].number, top[0].calories)
+	fmt.Printf("Elf %d has the second most calories: %d\n", top[1].number, top[1].calories)
+	fmt.Printf("Elf %d has the third most calories: %d\n", top[2].number, top[2].calories)
+	fmt.Printf("Sum: %d\n", sum_calories)
 }
 
 func read_file_by_line(path string) func() (line string, eof bool) {
