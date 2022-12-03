@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"tobias-walle/aoc-22/utils"
 )
 
 type elf struct {
@@ -13,19 +14,18 @@ type elf struct {
 }
 
 func main() {
-	input_file_path := os.Args[1]
-	if input_file_path == "" {
-		panic("Please provide the path of the input file as the first argument")
-	}
-
-	fmt.Println("Read", input_file_path)
-	next_line := read_file_by_line(input_file_path)
+	lines, err := utils.Parse_input_file_lines_from_args()
+	check(err)
+	defer lines.Close()
 
 	// Top 3 max calories, starting with the higher value
 	var top [3]elf
 	current := elf{number: 1, calories: 0}
 	for {
-		line, eof := next_line()
+		line, eof, err := lines.Next()
+		if err != nil {
+			check(err)
+		}
 		if line != "" {
 			// Add calories to current elf
 			int_line, err := strconv.Atoi(line)

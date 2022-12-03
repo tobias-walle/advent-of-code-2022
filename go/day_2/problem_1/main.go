@@ -2,21 +2,15 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"tobias-walle/aoc-22/utils"
 )
 
 func main() {
-	input_file_path := os.Args[1]
-	if input_file_path == "" {
-		panic("Please provide the path of the input file as the first argument")
-	}
-
-	fmt.Println("Read", input_file_path)
-	parser, err := utils.Parse_lines(input_file_path)
+	lines, err := utils.Parse_input_file_lines_from_args()
 	check(err)
+	defer lines.Close()
 
-	total_score, err := get_total_score(parser)
+	total_score, err := get_total_score(lines)
 	check(err)
 
 	fmt.Printf("Score: %d", total_score)
