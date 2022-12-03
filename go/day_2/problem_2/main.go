@@ -34,12 +34,12 @@ func get_total_score(lines utils.Line_parser) (Score, error) {
 			return 0, err
 		}
 
-		my_shape, err := parse_shape(line[2])
+		my_result, err := parse_result(line[2])
 		if err != nil {
 			return 0, err
 		}
 
-		_, my_result := get_result(opponent_shape, my_shape)
+		my_shape := get_shape_by_result(opponent_shape, my_result)
 
 		score := my_result.score() + my_shape.score()
 		total_score += score
@@ -57,11 +57,11 @@ const (
 
 func parse_shape(char byte) (Shape, error) {
 	switch char {
-	case 'A', 'X':
+	case 'A':
 		return Rock, nil
-	case 'B', 'Y':
+	case 'B':
 		return Paper, nil
-	case 'C', 'Z':
+	case 'C':
 		return Scissors, nil
 	}
 	return 0, fmt.Errorf("shape: cannot be parsed from %c", char)
@@ -87,27 +87,39 @@ const (
 	Loose
 )
 
-func get_result(shape_1 Shape, shape_2 Shape) (GameResult, GameResult) {
-	if shape_1 == shape_2 {
-		return Draw, Draw
+func parse_result(char byte) (GameResult, error) {
+	switch char {
+	case 'X':
+		return Loose, nil
+	case 'Y':
+		return Draw, nil
+	case 'Z':
+		return Win, nil
 	}
-	if shape_1 == Rock && shape_2 == Scissors {
-		return Win, Loose
+	return 0, fmt.Errorf("shape: cannot be parsed from %c", char)
+}
+
+func get_shape_by_result(shape Shape, result GameResult) Shape {
+	if result == Draw {
+		return shape
 	}
-	if shape_1 == Rock && shape_2 == Paper {
-		return Loose, Win
+	if shape == Rock && result == Win {
+		return Paper
 	}
-	if shape_1 == Paper && shape_2 == Rock {
-		return Win, Loose
+	if shape == Rock && result == Loose {
+		return Scissors
 	}
-	if shape_1 == Paper && shape_2 == Scissors {
-		return Loose, Win
+	if shape == Paper && result == Win {
+		return Scissors
 	}
-	if shape_1 == Scissors && shape_2 == Rock {
-		return Loose, Win
+	if shape == Paper && result == Loose {
+		return Rock
 	}
-	if shape_1 == Scissors && shape_2 == Paper {
-		return Win, Loose
+	if shape == Scissors && result == Win {
+		return Rock
+	}
+	if shape == Scissors && result == Loose {
+		return Paper
 	}
 	panic("Unreachable")
 }
