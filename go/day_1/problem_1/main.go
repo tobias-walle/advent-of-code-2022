@@ -14,8 +14,8 @@ type elf struct {
 }
 
 func main() {
-	lines, err := utils.Parse_input_file_lines_from_args()
-	check(err)
+	lines, err := utils.ParseInputFileLinesFromArgs()
+	utils.PanicOnErr(err)
 	defer lines.Close()
 
 	var max elf
@@ -23,12 +23,12 @@ func main() {
 	for {
 		line, eof, err := lines.Next()
 		if err != nil {
-			check(err)
+			utils.PanicOnErr(err)
 		}
 		if line != "" {
 			// Add calories to current elf
 			int_line, err := strconv.Atoi(line)
-			check(err)
+			utils.PanicOnErr(err)
 			current.calories += int_line
 			continue
 		}
@@ -51,7 +51,7 @@ func main() {
 
 func read_file_by_line(path string) func() (line string, eof bool) {
 	input_file, err := os.Open(path)
-	check(err)
+	utils.PanicOnErr(err)
 
 	scanner := bufio.NewScanner(input_file)
 	scanner.Split(bufio.ScanLines)
@@ -60,13 +60,7 @@ func read_file_by_line(path string) func() (line string, eof bool) {
 			return scanner.Text(), false
 		}
 		defer input_file.Close()
-		check(scanner.Err())
+		utils.PanicOnErr(scanner.Err())
 		return "", true
-	}
-}
-
-func check(e error) {
-	if e != nil {
-		panic(e)
 	}
 }

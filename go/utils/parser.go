@@ -6,20 +6,20 @@ import (
 	"os"
 )
 
-type Line_parser interface {
+type LineParser interface {
 	Next() (line string, done bool, err error)
 }
 
-type file_line_parser struct {
+type FileLineParser struct {
 	file    *os.File
 	scanner *bufio.Scanner
 }
 
-func (p file_line_parser) Close() {
+func (p FileLineParser) Close() {
 	p.file.Close()
 }
 
-func (p file_line_parser) Next() (line string, done bool, err error) {
+func (p FileLineParser) Next() (line string, done bool, err error) {
 	if p.scanner.Scan() {
 		return p.scanner.Text(), false, p.scanner.Err()
 	}
@@ -27,15 +27,15 @@ func (p file_line_parser) Next() (line string, done bool, err error) {
 	return "", true, p.scanner.Err()
 }
 
-func Parse_lines(path string) (file_line_parser, error) {
+func ParseLines(path string) (FileLineParser, error) {
 	input_file, err := os.Open(path)
 	if err != nil {
-		return file_line_parser{}, err
+		return FileLineParser{}, err
 	}
 
 	scanner := bufio.NewScanner(input_file)
 	scanner.Split(bufio.ScanLines)
-	parser := file_line_parser{
+	parser := FileLineParser{
 		file:    input_file,
 		scanner: scanner,
 	}
@@ -43,12 +43,12 @@ func Parse_lines(path string) (file_line_parser, error) {
 	return parser, nil
 }
 
-func Parse_input_file_lines_from_args() (file_line_parser, error) {
+func ParseInputFileLinesFromArgs() (FileLineParser, error) {
 	input_file_path := os.Args[1]
 	if input_file_path == "" {
 		panic("Please provide the path of the input file as the first argument")
 	}
 
 	fmt.Println("Read", input_file_path)
-	return Parse_lines(input_file_path)
+	return ParseLines(input_file_path)
 }

@@ -6,19 +6,19 @@ import (
 )
 
 func main() {
-	lines, err := utils.Parse_input_file_lines_from_args()
-	check(err)
+	lines, err := utils.ParseInputFileLinesFromArgs()
+	utils.PanicOnErr(err)
 	defer lines.Close()
 
 	total_score, err := get_total_score(lines)
-	check(err)
+	utils.PanicOnErr(err)
 
 	fmt.Printf("Score: %d", total_score)
 }
 
 type Score uint
 
-func get_total_score(lines utils.Line_parser) (Score, error) {
+func get_total_score(lines utils.LineParser) (Score, error) {
 	total_score := Score(0)
 	for {
 		line, done, err := lines.Next()
@@ -134,10 +134,4 @@ func (result GameResult) score() Score {
 		return 0
 	}
 	return 0
-}
-
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
 }
