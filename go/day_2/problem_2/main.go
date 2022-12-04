@@ -10,7 +10,7 @@ func main() {
 	utils.PanicOnErr(err)
 	defer lines.Close()
 
-	total_score, err := get_total_score(lines)
+	total_score, err := getTotalScore(lines)
 	utils.PanicOnErr(err)
 
 	fmt.Printf("Score: %d", total_score)
@@ -18,7 +18,7 @@ func main() {
 
 type Score uint
 
-func get_total_score(lines utils.LineParser) (Score, error) {
+func getTotalScore(lines utils.LineParser) (Score, error) {
 	total_score := Score(0)
 	for {
 		line, done, err := lines.Next()
@@ -29,17 +29,17 @@ func get_total_score(lines utils.LineParser) (Score, error) {
 			break
 		}
 
-		opponent_shape, err := parse_shape(line[0])
+		opponent_shape, err := parseShape(line[0])
 		if err != nil {
 			return 0, err
 		}
 
-		my_result, err := parse_result(line[2])
+		my_result, err := parseResult(line[2])
 		if err != nil {
 			return 0, err
 		}
 
-		my_shape := get_shape_by_result(opponent_shape, my_result)
+		my_shape := getShapeByResult(opponent_shape, my_result)
 
 		score := my_result.score() + my_shape.score()
 		total_score += score
@@ -55,7 +55,7 @@ const (
 	Scissors
 )
 
-func parse_shape(char byte) (Shape, error) {
+func parseShape(char byte) (Shape, error) {
 	switch char {
 	case 'A':
 		return Rock, nil
@@ -87,7 +87,7 @@ const (
 	Loose
 )
 
-func parse_result(char byte) (GameResult, error) {
+func parseResult(char byte) (GameResult, error) {
 	switch char {
 	case 'X':
 		return Loose, nil
@@ -99,7 +99,7 @@ func parse_result(char byte) (GameResult, error) {
 	return 0, fmt.Errorf("shape: cannot be parsed from %c", char)
 }
 
-func get_shape_by_result(shape Shape, result GameResult) Shape {
+func getShapeByResult(shape Shape, result GameResult) Shape {
 	if result == Draw {
 		return shape
 	}

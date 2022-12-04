@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"strconv"
 	"tobias-walle/aoc-22/utils"
 )
@@ -63,20 +61,4 @@ func main() {
 	fmt.Printf("Elf %d has the second most calories: %d\n", top[1].number, top[1].calories)
 	fmt.Printf("Elf %d has the third most calories: %d\n", top[2].number, top[2].calories)
 	fmt.Printf("Sum: %d\n", sum_calories)
-}
-
-func read_file_by_line(path string) func() (line string, eof bool) {
-	input_file, err := os.Open(path)
-	utils.PanicOnErr(err)
-
-	scanner := bufio.NewScanner(input_file)
-	scanner.Split(bufio.ScanLines)
-	return func() (line string, eof bool) {
-		if scanner.Scan() {
-			return scanner.Text(), false
-		}
-		defer input_file.Close()
-		utils.PanicOnErr(scanner.Err())
-		return "", true
-	}
 }

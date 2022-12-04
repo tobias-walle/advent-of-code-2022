@@ -10,7 +10,7 @@ func main() {
 	utils.PanicOnErr(err)
 	defer lines.Close()
 
-	total_score, err := get_total_score(lines)
+	total_score, err := getTotalScore(lines)
 	utils.PanicOnErr(err)
 
 	fmt.Printf("Score: %d", total_score)
@@ -18,7 +18,7 @@ func main() {
 
 type Score uint
 
-func get_total_score(lines utils.LineParser) (Score, error) {
+func getTotalScore(lines utils.LineParser) (Score, error) {
 	total_score := Score(0)
 	for {
 		line, done, err := lines.Next()
@@ -29,17 +29,17 @@ func get_total_score(lines utils.LineParser) (Score, error) {
 			break
 		}
 
-		opponent_shape, err := parse_shape(line[0])
+		opponent_shape, err := parseShape(line[0])
 		if err != nil {
 			return 0, err
 		}
 
-		my_shape, err := parse_shape(line[2])
+		my_shape, err := parseShape(line[2])
 		if err != nil {
 			return 0, err
 		}
 
-		_, my_result := get_result(opponent_shape, my_shape)
+		_, my_result := getResult(opponent_shape, my_shape)
 
 		score := my_result.score() + my_shape.score()
 		total_score += score
@@ -55,7 +55,7 @@ const (
 	Scissors
 )
 
-func parse_shape(char byte) (Shape, error) {
+func parseShape(char byte) (Shape, error) {
 	switch char {
 	case 'A', 'X':
 		return Rock, nil
@@ -87,7 +87,7 @@ const (
 	Loose
 )
 
-func get_result(shape_1 Shape, shape_2 Shape) (GameResult, GameResult) {
+func getResult(shape_1 Shape, shape_2 Shape) (GameResult, GameResult) {
 	if shape_1 == shape_2 {
 		return Draw, Draw
 	}
