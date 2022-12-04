@@ -12,13 +12,13 @@ func main() {
 	utils.PanicOnErr(err)
 	defer lines.Close()
 
-	sum, err := getNumberOfFullyContainingPairs(lines)
+	sum, err := getNumberOfOverlappingPairs(lines)
 	utils.PanicOnErr(err)
 	println("Number of overlapping pairs:", sum)
 }
 
-func getNumberOfFullyContainingPairs(lines utils.LineParser) (int, error) {
-	numberFullyContainingPairs := 0
+func getNumberOfOverlappingPairs(lines utils.LineParser) (int, error) {
+	numberOverlappingPairs := 0
 
 	for {
 		line, done, err := lines.Next()
@@ -34,13 +34,12 @@ func getNumberOfFullyContainingPairs(lines utils.LineParser) (int, error) {
 			return 0, err
 		}
 
-		if ranges[0].isContaining(ranges[1]) || ranges[1].isContaining(ranges[0]) {
-			numberFullyContainingPairs++
+		if ranges[0].isOverlapping(ranges[1]) {
+			numberOverlappingPairs++
 		}
-
 	}
 
-	return numberFullyContainingPairs, nil
+	return numberOverlappingPairs, nil
 }
 
 func parseRanges(input string) ([]Range, error) {
@@ -77,6 +76,6 @@ type Range struct {
 	end   int
 }
 
-func (r Range) isContaining(other Range) bool {
-	return r.start <= other.start && r.end >= other.end
+func (r Range) isOverlapping(other Range) bool {
+	return (r.end >= other.start && r.start <= other.end)
 }
