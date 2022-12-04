@@ -26,9 +26,9 @@ func main() {
 		}
 		if line != "" {
 			// Add calories to current elf
-			int_line, err := strconv.Atoi(line)
+			intLine, err := strconv.Atoi(line)
 			utils.PanicOnErr(err)
-			current.calories += int_line
+			current.calories += intLine
 			continue
 		}
 
@@ -52,13 +52,13 @@ func main() {
 		}
 	}
 
-	sum_calories := 0
+	sumCalories := 0
 	for _, elf := range top {
-		sum_calories += elf.calories
+		sumCalories += elf.calories
 	}
 
 	fmt.Printf("Elf %d has the most calories: %d\n", top[0].number, top[0].calories)
 	fmt.Printf("Elf %d has the second most calories: %d\n", top[1].number, top[1].calories)
 	fmt.Printf("Elf %d has the third most calories: %d\n", top[2].number, top[2].calories)
-	fmt.Printf("Sum: %d\n", sum_calories)
+	fmt.Printf("Sum: %d\n", sumCalories)
 }

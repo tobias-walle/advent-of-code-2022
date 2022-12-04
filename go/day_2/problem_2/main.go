@@ -10,16 +10,16 @@ func main() {
 	utils.PanicOnErr(err)
 	defer lines.Close()
 
-	total_score, err := getTotalScore(lines)
+	totalScore, err := getTotalScore(lines)
 	utils.PanicOnErr(err)
 
-	fmt.Printf("Score: %d", total_score)
+	fmt.Printf("Score: %d", totalScore)
 }
 
 type Score uint
 
 func getTotalScore(lines utils.LineParser) (Score, error) {
-	total_score := Score(0)
+	totalScore := Score(0)
 	for {
 		line, done, err := lines.Next()
 		if err != nil {
@@ -29,22 +29,22 @@ func getTotalScore(lines utils.LineParser) (Score, error) {
 			break
 		}
 
-		opponent_shape, err := parseShape(line[0])
+		opponentShape, err := parseShape(line[0])
 		if err != nil {
 			return 0, err
 		}
 
-		my_result, err := parseResult(line[2])
+		myResult, err := parseResult(line[2])
 		if err != nil {
 			return 0, err
 		}
 
-		my_shape := getShapeByResult(opponent_shape, my_result)
+		myShape := getShapeByResult(opponentShape, myResult)
 
-		score := my_result.score() + my_shape.score()
-		total_score += score
+		score := myResult.score() + myShape.score()
+		totalScore += score
 	}
-	return total_score, nil
+	return totalScore, nil
 }
 
 type Shape int8

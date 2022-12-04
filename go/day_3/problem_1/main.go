@@ -52,15 +52,15 @@ func getSumOfPriorities(lines utils.LineParser) (int, error) {
 
 		// Calculate priority
 		for k := range both {
-			sum += get_priority(k)
+			sum += getPriority(k)
 		}
 	}
 }
 
-func get_priority(char byte) int {
+func getPriority(char byte) int {
 	// In ASCII, lowercase characters have a lower number than uppercase characters
-	is_uppercase := char < 'a'
-	if is_uppercase {
+	isUppercase := char < 'a'
+	if isUppercase {
 		return int(char - 'A' + 27)
 	} else {
 		return int(char - 'a' + 1)

@@ -10,16 +10,16 @@ func main() {
 	utils.PanicOnErr(err)
 	defer lines.Close()
 
-	total_score, err := getTotalScore(lines)
+	totalScore, err := getTotalScore(lines)
 	utils.PanicOnErr(err)
 
-	fmt.Printf("Score: %d", total_score)
+	fmt.Printf("Score: %d", totalScore)
 }
 
 type Score uint
 
 func getTotalScore(lines utils.LineParser) (Score, error) {
-	total_score := Score(0)
+	totalScore := Score(0)
 	for {
 		line, done, err := lines.Next()
 		if err != nil {
@@ -29,22 +29,22 @@ func getTotalScore(lines utils.LineParser) (Score, error) {
 			break
 		}
 
-		opponent_shape, err := parseShape(line[0])
+		opponentShape, err := parseShape(line[0])
 		if err != nil {
 			return 0, err
 		}
 
-		my_shape, err := parseShape(line[2])
+		myShape, err := parseShape(line[2])
 		if err != nil {
 			return 0, err
 		}
 
-		_, my_result := getResult(opponent_shape, my_shape)
+		_, myResult := getResult(opponentShape, myShape)
 
-		score := my_result.score() + my_shape.score()
-		total_score += score
+		score := myResult.score() + myShape.score()
+		totalScore += score
 	}
-	return total_score, nil
+	return totalScore, nil
 }
 
 type Shape int8
@@ -87,26 +87,26 @@ const (
 	Loose
 )
 
-func getResult(shape_1 Shape, shape_2 Shape) (GameResult, GameResult) {
-	if shape_1 == shape_2 {
+func getResult(shape1 Shape, shape2 Shape) (GameResult, GameResult) {
+	if shape1 == shape2 {
 		return Draw, Draw
 	}
-	if shape_1 == Rock && shape_2 == Scissors {
+	if shape1 == Rock && shape2 == Scissors {
 		return Win, Loose
 	}
-	if shape_1 == Rock && shape_2 == Paper {
+	if shape1 == Rock && shape2 == Paper {
 		return Loose, Win
 	}
-	if shape_1 == Paper && shape_2 == Rock {
+	if shape1 == Paper && shape2 == Rock {
 		return Win, Loose
 	}
-	if shape_1 == Paper && shape_2 == Scissors {
+	if shape1 == Paper && shape2 == Scissors {
 		return Loose, Win
 	}
-	if shape_1 == Scissors && shape_2 == Rock {
+	if shape1 == Scissors && shape2 == Rock {
 		return Loose, Win
 	}
-	if shape_1 == Scissors && shape_2 == Paper {
+	if shape1 == Scissors && shape2 == Paper {
 		return Win, Loose
 	}
 	panic("Unreachable")

@@ -25,9 +25,9 @@ func main() {
 		}
 		if line != "" {
 			// Add calories to current elf
-			int_line, err := strconv.Atoi(line)
+			intLine, err := strconv.Atoi(line)
 			utils.PanicOnErr(err)
-			current.calories += int_line
+			current.calories += intLine
 			continue
 		}
 
