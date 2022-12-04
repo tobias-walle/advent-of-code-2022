@@ -1,5 +1,6 @@
 [workspace]
-members = ["day_1"]
+members = ["*/"]
+exclude = ["target"]
 
 [workspace.dependencies]
 eyre = "0.6.8"

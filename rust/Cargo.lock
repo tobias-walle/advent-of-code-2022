@@ -14,6 +14,7 @@ version = "0.0.0"
 dependencies = [
  "eyre",
  "priority-queue",
+ "utils",
 ]
 
 [[package]]
@@ -62,4 +63,11 @@ checksum = "d7685ca4cc0b3ad748c22ce6803e23b55b9206ef7715b965ebeaf41639238fdc"
 dependencies = [
  "autocfg",
  "indexmap",
+]
+
+[[package]]
+name = "utils"
+version = "0.0.0"
+dependencies = [
+ "eyre",
 ]
