@@ -7,6 +7,7 @@ import (
 )
 
 type LineParser interface {
+	Close()
 	Next() (line string, done bool, err error)
 }
 
