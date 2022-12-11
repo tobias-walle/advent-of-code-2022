@@ -2,6 +2,20 @@
 
 Solving [Advent of Code](https://adventofcode.com/2022) using Go and Rust.
 
+How to run Go problems:
+
+```
+cd ./go/day_1
+go run ./problem_1 input.txt
+```
+
+How to run Rust problems:
+
+```
+cd ./rust/day_1
+cargo run -q --bin problem_1 input.txt
+```
+
 - [Day 1](https://adventofcode.com/2022/day/1)
   - [Go](./go/day_1)
   - [Rust](./rust/day_1)
