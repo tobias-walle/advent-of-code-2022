@@ -11,10 +11,10 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn solve_problem(lines: Lines) -> Result<i32> {
+fn solve_problem(lines: Lines) -> Result<String> {
     let mut cycle = 0;
     let mut x = 1;
-    let mut result = 0;
+    let mut result = String::new();
 
     for line in lines {
         let line = line.context("Cannot parse line")?;
@@ -22,23 +22,31 @@ fn solve_problem(lines: Lines) -> Result<i32> {
         let instruction: Instruction = line.parse()?;
         match instruction {
             Instruction::AddX(n) => {
-                next_cycle(&mut cycle, x, &mut result);
-                next_cycle(&mut cycle, x, &mut result);
+                cycle += 1;
+                draw_pixel(&mut result, cycle, x);
+                cycle += 1;
+                draw_pixel(&mut result, cycle, x);
                 x += n;
             }
             Instruction::Noop => {
-                next_cycle(&mut cycle, x, &mut result);
+                cycle += 1;
+                draw_pixel(&mut result, cycle, x);
             }
         };
     }
 
-    Ok(result)
+    Ok(result.trim_end().to_string())
 }
 
-fn next_cycle(cycle: &mut i32, x: i32, result: &mut i32) {
-    *cycle += 1;
-    if *cycle == 20 || (*cycle + 20) % 40 == 0 {
-        *result += *cycle * x;
+fn draw_pixel(result: &mut String, cycle: i32, x: i32) {
+    let column = cycle % 40;
+    if column >= x && column <= x + 2 {
+        result.push('#');
+    } else {
+        result.push('.');
+    }
+    if column == 0 {
+        result.push('\n');
     }
 }
 
@@ -80,6 +88,17 @@ mod test {
 
         let result = solve_problem(lines).unwrap();
 
-        assert_eq!(result, 13140)
+        pretty_assertions::assert_eq!(
+            result,
+            "
+##..##..##..##..##..##..##..##..##..##..
+###...###...###...###...###...###...###.
+####....####....####....####....####....
+#####.....#####.....#####.....#####.....
+######......######......######......###.
+#######.......#######.......#######.....
+            "
+            .trim()
+        );
     }
 }

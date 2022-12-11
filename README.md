@@ -35,3 +35,5 @@ cargo run -q --bin problem_1 input.txt
   - [Go](./go/day_8)
 - [Day 9](https://adventofcode.com/2022/day/9)
   - [Go](./go/day_9)
+- [Day 9](https://adventofcode.com/2022/day/10)
+  - [Rust](./rust/day_10)
