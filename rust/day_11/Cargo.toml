@@ -1,8 +1,11 @@
 [package]
-name = "utils"
+name = "day_11"
 version = "0.0.0"
 edition = "2021"
 
 [dependencies]
 eyre = { workspace = true }
+pretty_assertions = { workspace = true }
+regex = { workspace = true }
 nom = { workspace = true }
+utils = { path = "../utils" }
