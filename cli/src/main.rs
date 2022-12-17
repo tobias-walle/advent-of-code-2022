@@ -24,13 +24,15 @@ async fn main() -> Result<()> {
 
     match args.command {
         Command::Download { year, day } => {
-            let (problem, examples, _) = try_join!(
+            let (problem, _) = try_join!(
                 download_problem(&client, year, day, "./problem.txt"),
-                download_potential_examples(&client, year, day),
                 download_input(&client, year, day, "./input.txt"),
             )?;
             println!("\n{}", "Problem:".cyan());
             println!("{problem}\n\n");
+        }
+        Command::DownloadExample { year, day } => {
+            let examples = download_potential_examples(&client, year, day).await?;
             choose_and_save_correct_example(examples, "./example.txt").await?;
         }
         Command::Submit {
@@ -57,6 +59,12 @@ struct Args {
 #[derive(Debug, Clone, Subcommand)]
 enum Command {
     Download {
+        #[arg(short, long)]
+        year: u32,
+        #[arg(short, long)]
+        day: u32,
+    },
+    DownloadExample {
         #[arg(short, long)]
         year: u32,
         #[arg(short, long)]
@@ -154,7 +162,7 @@ async fn choose_and_save_correct_example(examples: Vec<String>, output_file: &st
     for (i, example) in examples.into_iter().enumerate() {
         println!("\n{}", format!("Example {}:", i + 1).cyan());
         println!("{}", &example);
-        print!("\n{}", "> Save? (Y/n): ".cyan());
+        print!("\n{}", "> Save? (y/N): ".cyan());
         io::stdout().flush()?;
         if let YesNoChoice::Yes = prompt_user()? {
             save(output_file, example).await?;
@@ -168,15 +176,14 @@ async fn choose_and_save_correct_example(examples: Vec<String>, output_file: &st
 fn format_html_output(html: &str) -> Result<String> {
     let dom = tl::parse(html, Default::default())?;
     let parser = dom.parser();
-    let article = dom
+    let articles: Vec<_> = dom
         .query_selector("article")
         .unwrap()
-        .next()
-        .context("Cannot find article")?
-        .get(parser)
-        .unwrap()
-        .inner_html(parser);
-    let article = html_to_text(&article);
+        .map(|node| node.get(parser).unwrap().inner_html(parser))
+        .collect();
+    let articles = articles.join("\n");
+    let html = format!("<div>{articles}</div>");
+    let article = html_to_text(&html);
     Ok(article)
 }
 
@@ -195,7 +202,7 @@ fn prompt_user() -> io::Result<YesNoChoice> {
     let result = match input.to_lowercase().trim() {
         "y" => YesNoChoice::Yes,
         "n" => YesNoChoice::No,
-        _ => YesNoChoice::Yes,
+        _ => YesNoChoice::No,
     };
     Ok(result)
 }

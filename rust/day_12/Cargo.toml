@@ -1,0 +1,11 @@
+[package]
+name = "day_12"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+utils = { path = "../utils" }
+eyre = { workspace = true }
+pretty_assertions = { workspace = true }
+colored = { workspace = true }
+priority-queue = { workspace = true }
