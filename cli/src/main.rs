@@ -6,7 +6,8 @@ use std::{
 
 use clap::{command, Parser, Subcommand};
 use colored::Colorize;
-use eyre::{Context, ContextCompat, Result};
+use eyre::{Context, Result};
+use regex::{Captures, Regex};
 use reqwest::header::HeaderMap;
 use tokio::{fs, try_join};
 
@@ -23,17 +24,18 @@ async fn main() -> Result<()> {
         .build()?;
 
     match args.command {
-        Command::Download { year, day } => {
-            let (problem, _) = try_join!(
-                download_problem(&client, year, day, "./problem.txt"),
-                download_input(&client, year, day, "./input.txt"),
-            )?;
-            println!("\n{}", "Problem:".cyan());
-            println!("{problem}\n\n");
-        }
-        Command::DownloadExample { year, day } => {
-            let examples = download_potential_examples(&client, year, day).await?;
-            choose_and_save_correct_example(examples, "./example.txt").await?;
+        Command::Download { example, year, day } => {
+            if example {
+                let examples = download_potential_examples(&client, year, day).await?;
+                choose_and_save_correct_example(examples, "./example.txt").await?;
+            } else {
+                let (problem, _) = try_join!(
+                    download_problem(&client, year, day, "./problem.md"),
+                    download_input(&client, year, day, "./input.txt"),
+                )?;
+                println!("\n{}", "Problem:".cyan());
+                println!("{problem}\n\n");
+            }
         }
         Command::Submit {
             result,
@@ -60,11 +62,7 @@ struct Args {
 enum Command {
     Download {
         #[arg(short, long)]
-        year: u32,
-        #[arg(short, long)]
-        day: u32,
-    },
-    DownloadExample {
+        example: bool,
         #[arg(short, long)]
         year: u32,
         #[arg(short, long)]
@@ -90,7 +88,7 @@ async fn download_problem(
     let url = format!("https://adventofcode.com/{year}/day/{day}");
     let html = client.get(url).send().await?.text().await?;
     let article = format_html_output(&html)?;
-    save(output_file, article.clone()).await?;
+    save(output_file, &article).await?;
     Ok(article)
 }
 
@@ -102,7 +100,7 @@ async fn download_input(
 ) -> Result<()> {
     let url = format!("https://adventofcode.com/{year}/day/{day}/input");
     let input_text = client.get(url).send().await?.text().await?;
-    save(output_file, input_text).await?;
+    save(output_file, &input_text).await?;
     Ok(())
 }
 
@@ -154,23 +152,31 @@ async fn choose_and_save_correct_example(examples: Vec<String>, output_file: &st
     println!(
         "{}",
         format!(
-            "Downloaded {} potential examples, please choose one:\n",
+            "Downloaded {} potential examples, please choose one:",
             examples.len()
         )
         .cyan()
     );
-    for (i, example) in examples.into_iter().enumerate() {
-        println!("\n{}", format!("Example {}:", i + 1).cyan());
-        println!("{}", &example);
-        print!("\n{}", "> Save? (y/N): ".cyan());
-        io::stdout().flush()?;
-        if let YesNoChoice::Yes = prompt_user()? {
-            save(output_file, example).await?;
-            return Ok(());
-        };
+    for (i, example) in examples.iter().enumerate().rev() {
+        println!();
+        println!("{}", format!("Example {}:", i).cyan());
+        let short_example = &example.lines().collect::<Vec<_>>()[..10].join("\n");
+        println!("{}", short_example);
     }
-    println!("\n{}", "Nothing selected".cyan());
-    Ok(())
+    println!();
+    print!("{}", "> Choose example: ".cyan());
+    io::stdout().flush()?;
+    match read_user_input()?.parse::<usize>() {
+        Ok(n) if n < examples.len() => {
+            save(output_file, &examples[n]).await?;
+            Ok(())
+        }
+        _ => {
+            println!();
+            println!("{}", "Nothing selected".cyan());
+            Ok(())
+        }
+    }
 }
 
 fn format_html_output(html: &str) -> Result<String> {
@@ -188,26 +194,30 @@ fn format_html_output(html: &str) -> Result<String> {
 }
 
 fn html_to_text(html: &str) -> String {
-    html2text::from_read(html.as_bytes(), 80)
+    let text = html2text::from_read(html.as_bytes(), 80);
+
+    // Wrap multiline code examples with triple ```
+    let code_regex = Regex::new(r"`([^`]+)`").unwrap();
+    let text = code_regex.replace_all(&text, |caps: &Captures| {
+        let content = &caps[1];
+        if content.contains('\n') {
+            let content = content.trim();
+            format!("```\n{content}\n```")
+        } else {
+            format!("`{content}`")
+        }
+    });
+
+    text.to_string()
 }
 
-enum YesNoChoice {
-    Yes,
-    No,
-}
-
-fn prompt_user() -> io::Result<YesNoChoice> {
+fn read_user_input() -> io::Result<String> {
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
-    let result = match input.to_lowercase().trim() {
-        "y" => YesNoChoice::Yes,
-        "n" => YesNoChoice::No,
-        _ => YesNoChoice::No,
-    };
-    Ok(result)
+    Ok(input.trim().to_string())
 }
 
-async fn save(file: &str, content: String) -> Result<()> {
+async fn save(file: &str, content: &str) -> Result<()> {
     println!("{}", format!("Saving {file}").cyan());
     fs::write(file, content.clone())
         .await
