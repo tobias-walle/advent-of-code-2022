@@ -6,7 +6,7 @@ use std::{
 
 use eyre::{Context, ContextCompat, Result};
 
-pub mod parser;
+pub mod parsing;
 
 pub type Lines = io::Lines<io::BufReader<File>>;
 

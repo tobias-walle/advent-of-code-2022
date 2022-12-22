@@ -160,7 +160,8 @@ async fn choose_and_save_correct_example(examples: Vec<String>, output_file: &st
     for (i, example) in examples.iter().enumerate().rev() {
         println!();
         println!("{}", format!("Example {}:", i).cyan());
-        let short_example = &example.lines().collect::<Vec<_>>()[..10].join("\n");
+        let lines: Vec<_> = example.lines().collect();
+        let short_example = limit_size(&lines, 10).join("\n");
         println!("{}", short_example);
     }
     println!();
@@ -177,6 +178,10 @@ async fn choose_and_save_correct_example(examples: Vec<String>, output_file: &st
             Ok(())
         }
     }
+}
+
+fn limit_size<T>(list: &[T], limit: usize) -> &[T] {
+    list.get(..limit).unwrap_or(list)
 }
 
 fn format_html_output(html: &str) -> Result<String> {
@@ -201,7 +206,6 @@ fn html_to_text(html: &str) -> String {
     let text = code_regex.replace_all(&text, |caps: &Captures| {
         let content = &caps[1];
         if content.contains('\n') {
-            let content = content.trim();
             format!("```\n{content}\n```")
         } else {
             format!("`{content}`")
@@ -219,7 +223,7 @@ fn read_user_input() -> io::Result<String> {
 
 async fn save(file: &str, content: &str) -> Result<()> {
     println!("{}", format!("Saving {file}").cyan());
-    fs::write(file, content.clone())
+    fs::write(file, content)
         .await
         .with_context(|| format!("Couldn't write to {file}"))?;
     Ok(())

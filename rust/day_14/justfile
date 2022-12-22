@@ -1,0 +1,5 @@
+problem_1 file:
+  cargo run -q --bin problem_1 {{file}}
+
+problem_2 file:
+  cargo run -q --bin problem_2 {{file}}

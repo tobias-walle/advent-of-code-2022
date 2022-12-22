@@ -14,7 +14,7 @@ use nom::{
     bytes::complete::tag, character::complete::multispace0, combinator::map_res,
     sequence::delimited, IResult,
 };
-use utils::{parser, read_input_file_as_string};
+use utils::{parsing, read_input_file_as_string};
 
 fn main() -> Result<()> {
     let input = read_input_file_as_string()?;
@@ -162,7 +162,7 @@ impl Variable {
         let (input, _) = multispace0(input)?;
         alt((
             map(tag("old"), |_| Self::Old),
-            map(parser::number, Self::Literal),
+            map(parsing::number, Self::Literal),
         ))(input)
     }
 
@@ -213,7 +213,7 @@ impl Item {
         let (input, _) = multispace0(input)?;
         let (input, worry_levels) = separated_list0(
             delimited(multispace0, tag(","), multispace0),
-            parser::number,
+            parsing::number,
         )(input)?;
         let items: HashMap<_, _> = worry_levels
             .into_iter()
@@ -241,17 +241,17 @@ impl Test {
         let (input, _) = multispace0(input)?;
         let (input, _) = tag("Test: divisible by")(input)?;
         let (input, _) = multispace0(input)?;
-        let (input, divisible_by) = parser::number(input)?;
+        let (input, divisible_by) = parsing::number(input)?;
 
         let (input, _) = multispace0(input)?;
         let (input, _) = tag("If true: throw to monkey")(input)?;
         let (input, _) = multispace0(input)?;
-        let (input, if_true_throw_to) = map(parser::number, MonkeyId)(input)?;
+        let (input, if_true_throw_to) = map(parsing::number, MonkeyId)(input)?;
 
         let (input, _) = multispace0(input)?;
         let (input, _) = tag("If false: throw to monkey")(input)?;
         let (input, _) = multispace0(input)?;
-        let (input, if_false_throw_to) = map(parser::number, MonkeyId)(input)?;
+        let (input, if_false_throw_to) = map(parsing::number, MonkeyId)(input)?;
 
         Ok((
             input,
