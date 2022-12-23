@@ -1,7 +1,7 @@
 use std::{collections::HashSet, fmt::Debug};
 
 use colored::Colorize;
-use eyre::{Context, Result};
+use eyre::{Context, ContextCompat, Result};
 use nom::{
     bytes::complete::tag,
     character::complete::newline,
@@ -16,43 +16,43 @@ fn main() -> Result<()> {
     let file_name = get_input_file_name_from_args()?;
     let input = read_input_file_as_string().context("Cannot read input")?;
 
-    let rows = if file_name.contains("example") {
-        10
+    let search_radius = if file_name.contains("example") {
+        20
     } else {
-        2000000
+        4_000_000
     };
 
-    let result = solve_problem(&input, rows).context("Failed to solve problem")?;
+    let result = solve_problem(&input, search_radius).context("Failed to solve problem")?;
     println!("{result}");
     Ok(())
 }
 
-fn solve_problem(input: &str, row: i32) -> Result<usize> {
+fn solve_problem(input: &str, search_radius: i32) -> Result<usize> {
     let grid = parsing::parse_with_nom(input, parse_grid)?;
-    if is_debugging() {
-        render(&grid, row);
-    }
-    let count = count_points_that_cannot_contain_beacons_in_row(&grid, row);
-    Ok(count)
+    let point = find_beacon(&grid, search_radius).context("Beacon not found")?;
+    println!("Found {point:?}");
+    Ok(point.x as usize * 4_000_000 + point.y as usize)
 }
 
-fn count_points_that_cannot_contain_beacons_in_row(grid: &Grid, row: i32) -> usize {
-    let max_distance = grid
-        .pairs
-        .iter()
-        .map(|p| taxi_cap_distance(&p.sensor, &p.beacon))
-        .max()
-        .unwrap_or(0);
-    let beacons: HashSet<_> = grid.pairs.iter().map(|p| p.beacon).collect();
-    let mut limits = limits_of_grid(grid);
-    limits.left -= max_distance;
-    limits.right += max_distance;
-    (limits.left..=limits.right)
-        .filter(|x| {
-            let point = Point { x: *x, y: row };
-            is_in_beacon_radius_of_at_least_one_sensor(grid, &point) && !beacons.contains(&point)
-        })
-        .count()
+fn find_beacon(grid: &Grid, search_radius: i32) -> Option<Point> {
+    let mut highlights = HashSet::new();
+    for y in 0..=search_radius {
+        let mut x = 0;
+        while x < search_radius {
+            let point = Point { x, y };
+            if is_debugging() {
+                highlights.insert(point);
+            }
+            let Some(next_x) = find_next_x_position(grid, &point) else {
+                if is_debugging() {
+                    render(grid, search_radius, highlights);
+                }
+                return Some(point)
+            };
+            x = next_x;
+        }
+    }
+    None
 }
 
 fn is_in_beacon_radius_of_at_least_one_sensor(grid: &Grid, point: &Point) -> bool {
@@ -61,6 +61,22 @@ fn is_in_beacon_radius_of_at_least_one_sensor(grid: &Grid, point: &Point) -> boo
         let distance_point = taxi_cap_distance(&pair.sensor, point);
         distance_beacon >= distance_point
     })
+}
+
+fn find_next_x_position(grid: &Grid, point: &Point) -> Option<i32> {
+    grid.pairs
+        .iter()
+        .filter_map(|pair| {
+            let distance_beacon = taxi_cap_distance(&pair.sensor, &pair.beacon);
+            let distance_point = taxi_cap_distance(&pair.sensor, point);
+            if distance_beacon < distance_point {
+                return None;
+            }
+            let vertical_distance = point.y.abs_diff(pair.sensor.y) as i32;
+            let right_side = pair.sensor.x + distance_beacon - vertical_distance;
+            Some(right_side + 1)
+        })
+        .max()
 }
 
 fn taxi_cap_distance(p1: &Point, p2: &Point) -> i32 {
@@ -89,20 +105,13 @@ fn parse_point(input: &str) -> IResult<&str, Point> {
     Ok((input, Point { x, y }))
 }
 
-fn render(grid: &Grid, row_to_analyze: i32) {
+fn render(grid: &Grid, search_radius: i32, highlights: HashSet<Point>) {
     let sensors: HashSet<_> = grid.pairs.iter().map(|p| p.sensor).collect();
     let beacons: HashSet<_> = grid.pairs.iter().map(|p| p.beacon).collect();
-    let mut limits = limits_of_grid(&grid);
-    let offset = 10;
-    limits.top -= offset;
-    limits.left -= offset;
-    limits.bottom += offset;
-    limits.right += offset;
-    for y in limits.top..=limits.bottom {
-        print!(" {} ", if y == row_to_analyze { '→' } else { ' ' });
-        for x in limits.left..=limits.right {
+    for y in 0..=search_radius {
+        for x in 0..=search_radius {
             let point = Point { x, y };
-            let pixel = if sensors.contains(&point) {
+            let mut pixel = if sensors.contains(&point) {
                 "S".bold().truecolor(200, 50, 80)
             } else if beacons.contains(&point) {
                 "B".bold().truecolor(50, 80, 200)
@@ -111,35 +120,13 @@ fn render(grid: &Grid, row_to_analyze: i32) {
             } else {
                 ".".truecolor(50, 50, 50)
             };
+            if highlights.contains(&point) {
+                pixel = pixel.truecolor(50, 200, 80);
+            }
             print!("{}", pixel);
         }
         println!();
     }
-}
-
-fn limits_of_grid(grid: &Grid) -> Limits {
-    let points: Vec<_> = grid
-        .pairs
-        .iter()
-        .flat_map(|p| [p.sensor, p.beacon])
-        .collect();
-    limits(&points)
-}
-
-fn limits(points: &[Point]) -> Limits {
-    Limits {
-        top: points.iter().map(|p| p.y).min().unwrap_or(0),
-        right: points.iter().map(|p| p.x).max().unwrap_or(0),
-        bottom: points.iter().map(|p| p.y).max().unwrap_or(0),
-        left: points.iter().map(|p| p.x).min().unwrap_or(0),
-    }
-}
-
-struct Limits {
-    top: i32,
-    right: i32,
-    bottom: i32,
-    left: i32,
 }
 
 #[derive(Debug, Clone)]
@@ -175,7 +162,7 @@ mod tests {
     fn test_example() {
         let input = read_to_string("./example.txt").unwrap();
 
-        let result = solve_problem(&input, 10).unwrap();
-        assert_eq!(result, 26);
+        let result = solve_problem(&input, 20).unwrap();
+        assert_eq!(result, 56000011);
     }
 }
