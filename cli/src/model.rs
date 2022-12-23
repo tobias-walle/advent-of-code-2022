@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{command, Parser, Subcommand};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Parser)]
 #[command()]
@@ -14,6 +14,15 @@ pub struct Args {
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum Command {
+    New {
+        output: Option<PathBuf>,
+        #[arg(short, long)]
+        year: Option<u32>,
+        #[arg(short, long)]
+        day: u32,
+        #[arg(short, long, default_value = "./template")]
+        template: PathBuf,
+    },
     Download {
         #[arg(short, long)]
         example: bool,
@@ -33,7 +42,7 @@ pub enum Command {
     },
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub year: u32,
     pub day: u32,

@@ -14,3 +14,5 @@ html2text = "0.4.4"
 colored = "2.0.0"
 serde = { version = "1.0.151", features = ["derive"] }
 toml = "0.5.10"
+async-recursion = "1.0.0"
+chrono = "0.4.23"

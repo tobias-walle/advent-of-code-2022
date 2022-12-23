@@ -6,8 +6,11 @@ use std::{
     collections::HashMap,
     env,
     io::{self, Write},
+    path::Path,
 };
 
+use async_recursion::async_recursion;
+use chrono::Datelike;
 use clap::Parser;
 use colored::Colorize;
 use eyre::{bail, Context, Result};
@@ -33,6 +36,25 @@ async fn main() -> Result<()> {
         .build()?;
 
     match args.command {
+        Command::New {
+            output,
+            year,
+            day,
+            template,
+        } => {
+            let year = year.unwrap_or_else(|| chrono::Utc::now().year() as u32);
+            let output = output.unwrap_or_else(|| format!("./day_{day}").into());
+            create_project(year, day, &template, &output).await?;
+            env::set_current_dir(&output)?;
+            let (problem, _) = try_join!(
+                download_problem(&client, year, day, PATH_PROBLEM),
+                download_input(&client, year, day, PATH_INPUT),
+            )?;
+            println!("\n{}", "Problem:".cyan());
+            println!("{problem}\n\n");
+            let examples = download_potential_examples(&client, year, day).await?;
+            choose_and_save_correct_example(examples, PATH_EXAMPLE).await?;
+        }
         Command::Download { example, year, day } => {
             let year = get_year(year, &config)?;
             let day = get_day(day, &config)?;
@@ -118,6 +140,39 @@ async fn load_config(args: &Args) -> Option<Config> {
         }
     };
     Some(config)
+}
+
+async fn create_project(year: u32, day: u32, template: &Path, output: &Path) -> Result<()> {
+    let output_str = output.to_string_lossy();
+    let template_str = template.to_string_lossy();
+    println!("Copy '{template_str}' to '{output_str}'");
+    copy_dir_all(template, output)
+        .await
+        .context(format!("Failed to copy '{template_str}' to '{output_str}'"))?;
+
+    // Replace project name for rust projects
+    let cargo_toml = &output.join("Cargo.toml");
+    if let Ok(content) = fs::read_to_string(cargo_toml).await {
+        let cargo_toml_str = cargo_toml.to_string_lossy();
+        println!("Change name in '{cargo_toml_str}'");
+        fs::write(
+            cargo_toml,
+            content.replace(r#"name = "template""#, &format!(r#"name = "day_{day}""#)),
+        )
+        .await
+        .context(format!("Failed to update '{cargo_toml_str}'"))?;
+    }
+
+    // Add aoc config
+    let aoc_toml = &output.join("aoc.toml");
+    let aoc_toml_str = aoc_toml.to_string_lossy();
+    let config = Config { year, day };
+    println!("Generate '{aoc_toml_str}'");
+    fs::write(aoc_toml, toml::to_string_pretty(&config)?)
+        .await
+        .context(format!("Failed to write '{}'", aoc_toml.to_string_lossy()))?;
+
+    Ok(())
 }
 
 async fn download_problem(
@@ -267,5 +322,24 @@ async fn save(file: &str, content: &str) -> Result<()> {
     fs::write(file, content)
         .await
         .with_context(|| format!("Couldn't write to {file}"))?;
+    Ok(())
+}
+
+#[async_recursion]
+async fn copy_dir_all<S, D>(src: S, dst: D) -> io::Result<()>
+where
+    S: AsRef<Path> + Send + Sync,
+    D: AsRef<Path> + Send + Sync,
+{
+    fs::create_dir_all(&dst).await?;
+    let mut read_dir = fs::read_dir(src).await?;
+    while let Ok(Some(entry)) = read_dir.next_entry().await {
+        let file_type = entry.file_type().await?;
+        if file_type.is_dir() {
+            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name())).await?;
+        } else {
+            fs::copy(entry.path(), dst.as_ref().join(entry.file_name())).await?;
+        }
+    }
     Ok(())
 }
