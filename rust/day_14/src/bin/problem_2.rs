@@ -34,9 +34,9 @@ fn solve_problem(input: &str) -> Result<usize> {
 }
 
 fn tick(simulation: &mut Simulation) -> bool {
-    let bounds = simulation.bounds();
     let mut new_sand_positions = Vec::new();
     let emitters = simulation.get_coordinates(|field| matches!(field, Field::Emitter));
+    let mut continue_simulation = true;
     for emitter in emitters {
         let mut position = *emitter;
         loop {
@@ -46,8 +46,6 @@ fn tick(simulation: &mut Simulation) -> bool {
                 .or_else(|| simulation.try_sand_position(position.down().right()));
 
             match next_position {
-                // Prevent endless loop if sand is free falling
-                Some(next_position) if !bounds.is_inside(next_position) => return false,
                 // Next position found, set the position
                 Some(next_position) => position = next_position,
                 // Next position not found, sand has settled
@@ -55,18 +53,22 @@ fn tick(simulation: &mut Simulation) -> bool {
             }
         }
         new_sand_positions.push(position);
+        if position == *emitter {
+            // Sand reached the top
+            continue_simulation = false;
+        }
     }
     for position in new_sand_positions {
         simulation.fields.insert(position, Field::Sand);
     }
-    true
+    continue_simulation
 }
 
 fn render(simulation: &Simulation) {
     let bounds = simulation.bounds();
     let mut result = String::new();
-    for y in bounds.top..=bounds.bottom + 1 {
-        for x in bounds.left - 1..=bounds.right + 1 {
+    for y in bounds.top..=bounds.bottom + 2 {
+        for x in bounds.left - 3..=bounds.right + 3 {
             let coord = Coordinate::new(x, y);
             let pixel = "█";
             let pixel = match simulation.get(&coord) {
@@ -93,7 +95,7 @@ fn parse_simulation(input: &str) -> IResult<&str, Simulation> {
         .map(|coord| (coord, Field::Rock))
         .collect();
     fields.insert(Coordinate::new(500, 0), Field::Emitter);
-    let simulation = Simulation { fields };
+    let simulation = Simulation::new(fields);
     Ok((input, simulation))
 }
 
@@ -146,11 +148,24 @@ fn revert_if_necessary(range: RangeInclusive<usize>) -> RangeInclusive<usize> {
 #[derive(Debug, Clone)]
 struct Simulation {
     fields: HashMap<Coordinate, Field>,
+    floor_y: usize,
 }
 
 impl Simulation {
+    fn new(fields: HashMap<Coordinate, Field>) -> Self {
+        let bottom = fields.keys().map(|c| c.y).max().unwrap();
+        Self {
+            fields,
+            floor_y: bottom + 2,
+        }
+    }
+
     fn get(&self, coord: &Coordinate) -> &Field {
-        self.fields.get(coord).unwrap_or(&Field::Air)
+        if coord.y >= self.floor_y {
+            &Field::Rock
+        } else {
+            self.fields.get(coord).unwrap_or(&Field::Air)
+        }
     }
 
     fn get_coordinates<F>(&self, filter: F) -> impl Iterator<Item = &Coordinate>
@@ -196,15 +211,6 @@ struct Bounds {
     bottom: usize,
     left: usize,
     right: usize,
-}
-
-impl Bounds {
-    fn is_inside(&self, position: Coordinate) -> bool {
-        position.y >= self.top
-            && position.y <= self.bottom
-            && position.x >= self.left
-            && position.x <= self.right
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -259,6 +265,6 @@ mod tests {
         let input = read_to_string("./example.txt").unwrap();
 
         let result = solve_problem(&input).unwrap();
-        assert_eq!(result, 24);
+        assert_eq!(result, 93);
     }
 }
