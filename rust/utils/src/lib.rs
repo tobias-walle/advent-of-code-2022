@@ -21,7 +21,12 @@ pub fn read_lines(input_file_name: &str) -> Result<Lines> {
 }
 
 pub fn read_input_file_as_string() -> Result<String> {
-    read_to_string(&get_input_file_name_from_args()?).context("Couldn't read input file as string")
+    read_to_string(get_input_file_name_from_args()?).context("Couldn't read input file as string")
+}
+
+pub fn is_debugging() -> bool {
+    let Ok(env_var) = env::var("DEBUG") else { return false };
+    matches!(env_var.as_str(), "1" | "true")
 }
 
 pub fn get_input_file_name_from_args() -> Result<String> {

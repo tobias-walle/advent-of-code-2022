@@ -1,10 +1,16 @@
 use std::{fmt::Debug, str::FromStr};
 
 use eyre::{bail, Result};
-use nom::{character::complete::digit1, combinator::map_res, IResult};
+use nom::{
+    bytes::complete::tag,
+    character::complete::digit1,
+    combinator::{map_res, opt, recognize},
+    sequence::tuple,
+    IResult,
+};
 
 pub fn number<T: FromStr>(input: &str) -> IResult<&str, T> {
-    map_res(digit1, T::from_str)(input)
+    map_res(recognize(tuple((opt(tag("-")), digit1))), T::from_str)(input)
 }
 
 pub fn parse_with_nom<P, T>(input: &str, parse: P) -> Result<T>
