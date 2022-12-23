@@ -1,19 +1,28 @@
+mod model;
+
+use crate::model::*;
+
 use std::{
     collections::HashMap,
     env,
     io::{self, Write},
 };
 
-use clap::{command, Parser, Subcommand};
+use clap::Parser;
 use colored::Colorize;
-use eyre::{Context, Result};
+use eyre::{bail, Context, Result};
 use regex::{Captures, Regex};
 use reqwest::header::HeaderMap;
 use tokio::{fs, try_join};
 
+const PATH_EXAMPLE: &str = "./example.txt";
+const PATH_INPUT: &str = "./input.txt";
+const PATH_PROBLEM: &str = "./problem.md";
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+    let config = load_config(&args).await;
 
     let session = env::var("AOC_SESSION").context("AOC_SESSION not defined in environment")?;
 
@@ -25,13 +34,15 @@ async fn main() -> Result<()> {
 
     match args.command {
         Command::Download { example, year, day } => {
+            let year = get_year(year, &config)?;
+            let day = get_day(day, &config)?;
             if example {
                 let examples = download_potential_examples(&client, year, day).await?;
-                choose_and_save_correct_example(examples, "./example.txt").await?;
+                choose_and_save_correct_example(examples, PATH_EXAMPLE).await?;
             } else {
                 let (problem, _) = try_join!(
-                    download_problem(&client, year, day, "./problem.md"),
-                    download_input(&client, year, day, "./input.txt"),
+                    download_problem(&client, year, day, PATH_PROBLEM),
+                    download_input(&client, year, day, PATH_INPUT),
                 )?;
                 println!("\n{}", "Problem:".cyan());
                 println!("{problem}\n\n");
@@ -43,7 +54,13 @@ async fn main() -> Result<()> {
             day,
             level,
         } => {
+            let year = get_year(year, &config)?;
+            let day = get_day(day, &config)?;
+            let level = get_level(level).await?;
             let response = submit_input(&client, year, day, level, &result).await?;
+            if !response.contains("not the right answer") {
+                download_problem(&client, year, day, PATH_PROBLEM).await?;
+            }
             println!("\nResponse:\n{response}");
         }
     }
@@ -51,32 +68,56 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Clone, Parser)]
-#[command()]
-struct Args {
-    #[command(subcommand)]
-    pub command: Command,
+fn get_year(arg: Option<u32>, config: &Option<Config>) -> Result<u32> {
+    if let Some(arg) = arg {
+        return Ok(arg);
+    }
+    if let Some(config) = config {
+        return Ok(config.year);
+    }
+    bail!("Missing argument 'year'");
 }
 
-#[derive(Debug, Clone, Subcommand)]
-enum Command {
-    Download {
-        #[arg(short, long)]
-        example: bool,
-        #[arg(short, long)]
-        year: u32,
-        #[arg(short, long)]
-        day: u32,
-    },
-    Submit {
-        result: String,
-        #[arg(short, long)]
-        year: u32,
-        #[arg(short, long)]
-        day: u32,
-        #[arg(short, long)]
-        level: u32,
-    },
+fn get_day(arg: Option<u32>, config: &Option<Config>) -> Result<u32> {
+    if let Some(arg) = arg {
+        return Ok(arg);
+    }
+    if let Some(config) = config {
+        return Ok(config.day);
+    }
+    bail!("Missing argument 'day'");
+}
+
+async fn get_level(arg: Option<u32>) -> Result<u32> {
+    if let Some(arg) = arg {
+        return Ok(arg);
+    }
+
+    println!("Try to guess level based on '{PATH_PROBLEM}'.");
+    let problem_text = fs::read_to_string(PATH_PROBLEM)
+        .await
+        .context(format!("Error while opening '{PATH_PROBLEM}'"))?;
+
+    match problem_text.contains("--- Part Two ---") {
+        true => Ok(2),
+        false => Ok(1),
+    }
+}
+
+async fn load_config(args: &Args) -> Option<Config> {
+    let path = &args.config;
+    let file_content = fs::read_to_string(&path).await.ok()?;
+    let config: Config = match toml::from_str(&file_content) {
+        Ok(config) => config,
+        Err(err) => {
+            eprintln!(
+                "Failed to parse config {path}: {err}",
+                path = &path.to_string_lossy()
+            );
+            return None;
+        }
+    };
+    Some(config)
 }
 
 async fn download_problem(
