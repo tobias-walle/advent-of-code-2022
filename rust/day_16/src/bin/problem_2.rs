@@ -38,11 +38,11 @@ fn solve_problem(input: &str) -> Result<u32> {
     }
     println!("Computed {} paths", paths.len());
     let paths: PathsByFrom = paths.into_iter().into_group_map_by(|p| p.from.clone());
-    let best_plan = find_best_open_order(&valves, &paths);
+    let best_plan = find_best_path(&valves, &paths);
     Ok(best_plan.unwrap().pressure_released)
 }
 
-fn find_best_open_order(valves: &ValvesById, paths: &PathsByFrom) -> Option<Plan> {
+fn find_best_path(valves: &ValvesById, paths: &PathsByFrom) -> Option<Plan> {
     let mut initial = Plan::new();
     for traveller in Traveller::values() {
         initial.add(
@@ -60,7 +60,7 @@ fn find_best_open_order(valves: &ValvesById, paths: &PathsByFrom) -> Option<Plan
     let mut removed: u32 = 0;
     let mut best_score: u32 = 0;
 
-    let reduce_query_on = [1, 3, 5, 8, 10, 12, 15, 18, 20, 25];
+    let reduce_query_on = [10, 12, 15, 18, 20, 25];
     let mut max_score_on: HashMap<u32, u32> = HashMap::new();
 
     let count_travellers = Traveller::values().count();
@@ -78,6 +78,7 @@ fn find_best_open_order(valves: &ValvesById, paths: &PathsByFrom) -> Option<Plan
             let minutes_left = MAX_MINUTES.saturating_sub(minutes_passed);
             let mut possible_paths = paths[&position]
                 .iter()
+                .filter(|path| valves[&path.to].flow_rate != 0)
                 .filter(|path| !plan.opened.contains(&path.to))
                 .filter(|path| minutes_left >= path.minutes)
                 .peekable();
@@ -107,7 +108,7 @@ fn find_best_open_order(valves: &ValvesById, paths: &PathsByFrom) -> Option<Plan
                             .unwrap_or(&0)
                             .max(&new_plan.pressure_released);
                         max_score_on.insert(limit, max_score);
-                        if new_plan_pressure_released < max_score * 95 / 100 {
+                        if new_plan_pressure_released < max_score * 90 / 100 {
                             removed += 1;
                             add_to_query = false;
                         }
@@ -116,7 +117,7 @@ fn find_best_open_order(valves: &ValvesById, paths: &PathsByFrom) -> Option<Plan
                 }
 
                 if add_to_query {
-                    new_plan.update_heuristic(valves, paths);
+                    new_plan.update_heuristic(valves);
                     queue.push(new_plan);
                 }
             }
@@ -258,19 +259,18 @@ impl Plan {
         self.pressure_released += minutes_left * valves[&valve.id].flow_rate;
     }
 
-    fn update_heuristic(&mut self, valves: &ValvesById, paths: &PathsByFrom) {
+    fn update_heuristic(&mut self, valves: &ValvesById) {
         let mut heuristic_factor = 0;
         let unopened = valves.values().filter(|v| !self.opened.contains(&v.id));
         for traveller in Traveller::values() {
             let valve = self.order[&traveller].last().unwrap();
             let minutes_left = MAX_MINUTES - valve.minute;
-            let paths: HashMap<_, _> = paths[&valve.id].iter().map(|p| (p.to.clone(), p)).collect();
             heuristic_factor += unopened
                 .clone()
-                .map(|v| v.flow_rate * (minutes_left - paths[&v.id].minutes))
+                .map(|v| v.flow_rate * minutes_left)
                 .sum::<u32>();
         }
-        self.heuristic = self.pressure_released + heuristic_factor / 2
+        self.heuristic = self.pressure_released + heuristic_factor / 4
     }
 
     fn minutes_passed(&self, traveller: &Traveller) -> u32 {

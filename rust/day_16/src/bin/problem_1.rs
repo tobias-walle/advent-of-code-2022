@@ -35,11 +35,11 @@ fn solve_problem(input: &str) -> Result<u32> {
     }
     println!("Computed {} paths", paths.len());
     let paths: PathsByFrom = paths.into_iter().into_group_map_by(|p| p.from.clone());
-    let best_plan = find_best_open_order(&valves, &paths);
+    let best_plan = find_best_plan(&valves, &paths);
     Ok(best_plan.unwrap().pressure_released(&valves))
 }
 
-fn find_best_open_order(valves: &ValvesById, paths: &PathsByFrom) -> Option<Plan> {
+fn find_best_plan(valves: &ValvesById, paths: &PathsByFrom) -> Option<Plan> {
     let initial = Plan::from([OpenedValve {
         id: ValveId::new("AA"),
         minute: 0,
@@ -63,6 +63,7 @@ fn find_best_open_order(valves: &ValvesById, paths: &PathsByFrom) -> Option<Plan
         let minutes_left = MAX_MINUTES.saturating_sub(minutes_passed);
         let mut possible_paths = paths[&position]
             .iter()
+            .filter(|path| valves[&path.to].flow_rate != 0)
             .filter(|path| !plan.opened.contains(&path.to))
             .filter(|path| minutes_left >= path.minutes)
             .peekable();
