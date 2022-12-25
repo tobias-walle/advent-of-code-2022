@@ -1,22 +1,17 @@
-use std::{
-    cmp::{min, Reverse},
-    collections::{BTreeSet, HashMap, HashSet},
-    iter::Rev,
-    rc::Rc,
-};
+use std::collections::{HashMap, HashSet};
 
-use eyre::{bail, Context, ContextCompat, Result};
+use eyre::{Context, Result};
 use itertools::Itertools;
 use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{alpha1, newline},
     combinator::all_consuming,
-    multi::{separated_list0, separated_list1},
+    multi::separated_list1,
     sequence::{preceded, tuple},
     IResult,
 };
-use priority_queue::PriorityQueue;
+
 use utils::{parsing, read_input_file_as_string};
 
 fn main() -> Result<()> {
@@ -121,7 +116,7 @@ fn find_path(valves: &ValvesById, from: &ValveId, to: &ValveId) -> Option<Path> 
     while let Some(path) = queue.pop() {
         let node = path.last().unwrap();
         if node == to {
-            paths.push(compute_path(valves, &path));
+            paths.push(compute_path(&path));
             continue;
         }
         for connection in &valves[node].connections {
@@ -136,14 +131,12 @@ fn find_path(valves: &ValvesById, from: &ValveId, to: &ValveId) -> Option<Path> 
     paths.into_iter().min_by_key(|path| path.minutes)
 }
 
-fn compute_path(valves: &ValvesById, path: &[ValveId]) -> Path {
+fn compute_path(path: &[ValveId]) -> Path {
     let to = path.last().unwrap();
     Path {
         from: path[0].clone(),
         to: to.clone(),
-        flow_rate: valves[to].flow_rate,
         minutes: path.len() as u32,
-        path: path.to_vec(),
     }
 }
 
@@ -242,8 +235,6 @@ struct OpenedValve {
 struct Path {
     from: ValveId,
     to: ValveId,
-    path: Vec<ValveId>,
-    flow_rate: u32,
     minutes: u32,
 }
 
