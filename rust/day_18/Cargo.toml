@@ -9,3 +9,4 @@ eyre = { workspace = true }
 pretty_assertions = { workspace = true }
 colored = { workspace = true }
 nom = { workspace = true }
+derive_more = { workspace = true }
