@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use eyre::{Context, Result};
 use nom::{
@@ -23,10 +23,70 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn solve_problem(input: &str) -> Result<usize> {
+const TIME_IN_MINUTES: u32 = 24;
+
+fn solve_problem(input: &str) -> Result<i32> {
     let blueprints = parse_with_nom(input, parse)?;
-    dbg!(&blueprints);
-    Ok(0)
+    let best = find_optimal_solution_for_blueprint(&blueprints[0]);
+    Ok(best.score())
+}
+
+fn find_optimal_solution_for_blueprint(blueprint: &Blueprint) -> State {
+    let initial_state = State {
+        minute: 0,
+        robots: vec![blueprint.get_robot(&Resource::Ore)],
+        resources: HashMap::new(),
+        purchase_history: vec![],
+    };
+    let mut query = vec![initial_state];
+    let mut completed = vec![];
+    while let Some(mut state) = query.pop() {
+        if completed.len() % 100_000 == 0 {
+            println!("{}: {} / {}", state.minute, query.len(), completed.len());
+        }
+        if state.minute == TIME_IN_MINUTES {
+            completed.push(state);
+            continue;
+        }
+
+        state.minute += 1;
+
+        // Check what can be purchased
+        let purchasable: Vec<_> = blueprint
+            .robots
+            .values()
+            .cloned()
+            .filter(|robot| robot.can_affort(&state.resources))
+            .collect();
+
+        // Collect resources from robots
+        for robot in &state.robots {
+            let amount = *state.resources.get(&robot.resource).unwrap_or(&0) + 1;
+            state.resources.insert(robot.resource.clone(), amount);
+        }
+
+        // Add all possible desicions to query
+        let purchase_decisions: Vec<_> = purchasable
+            .iter()
+            .map(|robot| {
+                let mut state = state.clone();
+                robot.subtract_costs(&mut state.resources);
+                state.robots.push(robot.clone());
+                state.purchase_history.push(Purchase {
+                    minute: state.minute,
+                    robot: robot.clone(),
+                });
+                state
+            })
+            .collect();
+        let non_purchase_decision = state.clone();
+
+        query.push(non_purchase_decision);
+        query.extend(purchase_decisions);
+    }
+    dbg!(&completed);
+
+    completed.into_iter().max_by_key(State::score).unwrap()
 }
 
 fn parse(input: &str) -> IResult<&str, Vec<Blueprint>> {
@@ -36,7 +96,13 @@ fn parse(input: &str) -> IResult<&str, Vec<Blueprint>> {
             tuple((tag(":"), multispace1)),
             parse_robots,
         )),
-        |(id, _, robots)| Blueprint { id, robots },
+        |(id, _, robots)| Blueprint {
+            id,
+            robots: robots
+                .into_iter()
+                .map(|r| (r.resource.clone(), Rc::new(r)))
+                .collect(),
+        },
     )))(input.trim())
 }
 
@@ -74,15 +140,63 @@ fn parse_resource(input: &str) -> IResult<&str, Resource> {
 }
 
 #[derive(Debug, Clone)]
+struct State {
+    minute: u32,
+    resources: Resources,
+    robots: Vec<Rc<Robot>>,
+    purchase_history: Vec<Purchase>,
+}
+
+type Resources = HashMap<Resource, i32>;
+
+impl State {
+    fn score(&self) -> i32 {
+        self.resources[&Resource::Geode]
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Purchase {
+    minute: u32,
+    robot: Rc<Robot>,
+}
+
+#[derive(Debug, Clone)]
 struct Blueprint {
     id: u8,
-    robots: Vec<Robot>,
+    robots: HashMap<Resource, Rc<Robot>>,
+}
+
+impl Blueprint {
+    fn get_robot(&self, resource: &Resource) -> Rc<Robot> {
+        self.robots[resource].clone()
+    }
 }
 
 #[derive(Debug, Clone)]
 struct Robot {
     resource: Resource,
     costs: HashMap<Resource, i32>,
+}
+
+impl Robot {
+    fn can_affort(&self, resources: &Resources) -> bool {
+        self.costs
+            .iter()
+            .all(|(resource, costs)| resources.get(resource).unwrap_or(&0) >= costs)
+    }
+
+    fn subtract_costs(&self, resources: &mut Resources) {
+        if !self.can_affort(resources) {
+            return;
+        }
+
+        for (resource, costs) in &self.costs {
+            let mut amount = *resources.get(resource).unwrap_or(&0);
+            amount -= costs;
+            resources.insert(resource.clone(), amount);
+        }
+    }
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
