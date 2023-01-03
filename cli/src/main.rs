@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
             day,
             template,
         } => {
-            let year = year.unwrap_or_else(|| chrono::Utc::now().year() as u32);
+            let year = year.unwrap_or_else(get_default_year);
             let output = output.unwrap_or_else(|| format!("./day_{day}").into());
             create_project(year, day, &template, &output).await?;
             env::set_current_dir(&output)?;
@@ -98,6 +98,16 @@ fn get_year(arg: Option<u32>, config: &Option<Config>) -> Result<u32> {
         return Ok(config.year);
     }
     bail!("Missing argument 'year'");
+}
+
+fn get_default_year() -> u32 {
+    let now = chrono::Utc::now();
+    let year = now.year() as u32;
+    if now.month() == 12 {
+        year
+    } else {
+        year - 1
+    }
 }
 
 fn get_day(arg: Option<u32>, config: &Option<Config>) -> Result<u32> {
@@ -182,7 +192,13 @@ async fn download_problem(
     output_file: &str,
 ) -> Result<String> {
     let url = format!("https://adventofcode.com/{year}/day/{day}");
-    let html = client.get(url).send().await?.text().await?;
+    let html = client
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?
+        .text()
+        .await?;
     let article = format_html_output(&html)?;
     save(output_file, &article).await?;
     Ok(article)
@@ -195,7 +211,13 @@ async fn download_input(
     output_file: &str,
 ) -> Result<()> {
     let url = format!("https://adventofcode.com/{year}/day/{day}/input");
-    let input_text = client.get(url).send().await?.text().await?;
+    let input_text = client
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?
+        .text()
+        .await?;
     save(output_file, &input_text).await?;
     Ok(())
 }
@@ -211,7 +233,14 @@ async fn submit_input(
     let mut form = HashMap::new();
     form.insert("level", format!("{level}"));
     form.insert("answer", result.into());
-    let response = client.post(url).form(&form).send().await?.text().await?;
+    let response = client
+        .post(url)
+        .form(&form)
+        .send()
+        .await?
+        .error_for_status()?
+        .text()
+        .await?;
     let response = format_html_output(&response)?;
     Ok(response)
 }
@@ -222,7 +251,13 @@ async fn download_potential_examples(
     day: u32,
 ) -> Result<Vec<String>> {
     let url = format!("https://adventofcode.com/{year}/day/{day}");
-    let html = client.get(url).send().await?.text().await?;
+    let html = client
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?
+        .text()
+        .await?;
     let dom = tl::parse(&html, Default::default())?;
     let parser = dom.parser();
     let examples: Vec<String> = dom
