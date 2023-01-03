@@ -32,31 +32,23 @@ fn solve_problem(input: &str) -> Result<usize> {
 fn parse(input: &str) -> IResult<&str, Vec<Blueprint>> {
     all_consuming(many1(map(
         tuple((
-            delimited(
-                tag("Blueprint "),
-                parsing::number,
-                tuple((tag(":"), multispace1)),
-            ),
+            preceded(tag("Blueprint "), parsing::number),
+            tuple((tag(":"), multispace1)),
             parse_robots,
         )),
-        |(id, robots)| Blueprint { id, robots },
+        |(id, _, robots)| Blueprint { id, robots },
     )))(input.trim())
 }
 
 fn parse_robots(input: &str) -> IResult<&str, Vec<Robot>> {
-    terminated(
-        separated_list1(
-            terminated(tag("."), multispace1),
-            map(
-                tuple((
-                    preceded(tag("Each "), parse_resource),
-                    preceded(tag(" robot costs "), parse_costs),
-                )),
-                |(resource, costs)| Robot { resource, costs },
-            ),
-        ),
-        tuple((tag("."), multispace0)),
-    )(input)
+    many1(map(
+        tuple((
+            preceded(tag("Each "), parse_resource),
+            preceded(tag(" robot costs "), parse_costs),
+            tuple((tag("."), multispace0)),
+        )),
+        |(resource, costs, _)| Robot { resource, costs },
+    ))(input)
 }
 
 fn parse_costs(input: &str) -> IResult<&str, HashMap<Resource, i32>> {
