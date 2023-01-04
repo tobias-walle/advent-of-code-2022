@@ -1,10 +1,10 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, sync::Arc, thread};
 
 use eyre::{Context, Result};
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{multispace0, multispace1, newline, space0},
+    character::complete::{multispace0, multispace1, space0},
     combinator::{all_consuming, map},
     multi::{many1, separated_list1},
     sequence::{delimited, preceded, terminated, tuple},
@@ -27,23 +27,56 @@ const TIME_IN_MINUTES: u32 = 24;
 
 fn solve_problem(input: &str) -> Result<i32> {
     let blueprints = parse_with_nom(input, parse)?;
-    let best = find_optimal_solution_for_blueprint(&blueprints[0]);
-    Ok(best.score())
+    let mut scores = vec![];
+    for blueprint in blueprints {
+        scores.push(thread::spawn(move || {
+            let best = find_optimal_solution_for_blueprint(&blueprint);
+            (blueprint, best.score())
+        }));
+    }
+    let result = scores
+        .into_iter()
+        .map(|handle| {
+            let (blueprint, score) = handle.join().unwrap();
+            let blueprint_id = blueprint.id as i32;
+            println!("Blueprint {blueprint_id} - Score: {score}");
+            score * blueprint_id
+        })
+        .sum();
+    Ok(result)
 }
 
 fn find_optimal_solution_for_blueprint(blueprint: &Blueprint) -> State {
-    let initial_state = State {
-        minute: 0,
-        robots: vec![blueprint.get_robot(&Resource::Ore)],
-        resources: HashMap::new(),
-        purchase_history: vec![],
-    };
-    let mut query = vec![initial_state];
+    let robots_by_resource: HashMap<_, _> = blueprint
+        .robots
+        .iter()
+        .map(|robot| (robot.resource.clone(), robot.clone()))
+        .collect();
+    let mut query: Vec<_> = blueprint
+        .robots
+        .iter()
+        .map(|robot| State {
+            minute: 0,
+            robots: vec![robots_by_resource[&Resource::Ore].clone()],
+            resources: HashMap::new(),
+            next_to_purchase: robot.clone(),
+            purchase_history: vec![],
+        })
+        .collect();
+
     let mut completed = vec![];
-    while let Some(mut state) = query.pop() {
-        if completed.len() % 100_000 == 0 {
-            println!("{}: {} / {}", state.minute, query.len(), completed.len());
+
+    let mut max_robot_cost_by_resource = HashMap::new();
+    for robot in &blueprint.robots {
+        for (resource, costs) in &robot.costs {
+            let max_costs = *max_robot_cost_by_resource.get(resource).unwrap_or(&0);
+            if *costs > max_costs {
+                max_robot_cost_by_resource.insert(resource.clone(), *costs);
+            }
         }
+    }
+
+    while let Some(mut state) = query.pop() {
         if state.minute == TIME_IN_MINUTES {
             completed.push(state);
             continue;
@@ -51,13 +84,9 @@ fn find_optimal_solution_for_blueprint(blueprint: &Blueprint) -> State {
 
         state.minute += 1;
 
-        // Check what can be purchased
-        let purchasable: Vec<_> = blueprint
-            .robots
-            .values()
-            .cloned()
-            .filter(|robot| robot.can_affort(&state.resources))
-            .collect();
+        // Check if next robot can be afforted
+        let to_purchase = state.next_to_purchase.clone();
+        let can_be_afforted = to_purchase.can_affort(&state.resources);
 
         // Collect resources from robots
         for robot in &state.robots {
@@ -65,28 +94,43 @@ fn find_optimal_solution_for_blueprint(blueprint: &Blueprint) -> State {
             state.resources.insert(robot.resource.clone(), amount);
         }
 
-        // Add all possible desicions to query
-        let purchase_decisions: Vec<_> = purchasable
+        // Cancel if next purchase decision cannot be afforted
+        if !can_be_afforted {
+            query.push(state);
+            continue;
+        }
+
+        // Purchase
+        to_purchase.subtract_costs(&mut state.resources);
+        state.robots.push(to_purchase.clone());
+        state.purchase_history.push(Purchase {
+            minute: state.minute,
+            robot: to_purchase.clone(),
+        });
+
+        // Next possible decisions
+        let next_possible_decisions = blueprint
+            .robots
             .iter()
-            .map(|robot| {
-                let mut state = state.clone();
-                robot.subtract_costs(&mut state.resources);
-                state.robots.push(robot.clone());
-                state.purchase_history.push(Purchase {
-                    minute: state.minute,
-                    robot: robot.clone(),
-                });
-                state
+            .filter(|robot| {
+                // Do not buy robots if there are already enough resources available
+                let amount = state.resources.get(&robot.resource).unwrap_or(&0);
+                let max_robot_costs = &max_robot_cost_by_resource
+                    .get(&robot.resource)
+                    .unwrap_or(&i32::MAX);
+                amount < max_robot_costs
             })
-            .collect();
-        let non_purchase_decision = state.clone();
-
-        query.push(non_purchase_decision);
-        query.extend(purchase_decisions);
+            .map(|next_to_purchase| State {
+                next_to_purchase: next_to_purchase.clone(),
+                ..state.clone()
+            });
+        query.extend(next_possible_decisions);
     }
-    dbg!(&completed);
 
-    completed.into_iter().max_by_key(State::score).unwrap()
+    completed
+        .into_iter()
+        .max_by_key(|state| state.score())
+        .unwrap()
 }
 
 fn parse(input: &str) -> IResult<&str, Vec<Blueprint>> {
@@ -98,10 +142,7 @@ fn parse(input: &str) -> IResult<&str, Vec<Blueprint>> {
         )),
         |(id, _, robots)| Blueprint {
             id,
-            robots: robots
-                .into_iter()
-                .map(|r| (r.resource.clone(), Rc::new(r)))
-                .collect(),
+            robots: robots.into_iter().map(Arc::new).collect(),
         },
     )))(input.trim())
 }
@@ -139,11 +180,12 @@ fn parse_resource(input: &str) -> IResult<&str, Resource> {
     ))(input)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct State {
     minute: u32,
     resources: Resources,
-    robots: Vec<Rc<Robot>>,
+    robots: Vec<Arc<Robot>>,
+    next_to_purchase: Arc<Robot>,
     purchase_history: Vec<Purchase>,
 }
 
@@ -151,29 +193,23 @@ type Resources = HashMap<Resource, i32>;
 
 impl State {
     fn score(&self) -> i32 {
-        self.resources[&Resource::Geode]
+        *self.resources.get(&Resource::Geode).unwrap_or(&0)
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Purchase {
     minute: u32,
-    robot: Rc<Robot>,
+    robot: Arc<Robot>,
 }
 
 #[derive(Debug, Clone)]
 struct Blueprint {
     id: u8,
-    robots: HashMap<Resource, Rc<Robot>>,
+    robots: Vec<Arc<Robot>>,
 }
 
-impl Blueprint {
-    fn get_robot(&self, resource: &Resource) -> Rc<Robot> {
-        self.robots[resource].clone()
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Robot {
     resource: Resource,
     costs: HashMap<Resource, i32>,
@@ -199,7 +235,7 @@ impl Robot {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 enum Resource {
     Ore,
     Clay,
@@ -214,10 +250,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_find_optimal_solution_for_blueprint() {
+        let input = read_to_string("./example.txt").unwrap();
+
+        let blueprints = parse_with_nom(&input, parse).unwrap();
+        let best = find_optimal_solution_for_blueprint(&blueprints[0]);
+
+        assert_eq!(best.score(), 9);
+    }
+
+    #[test]
     fn test_example() {
         let input = read_to_string("./example.txt").unwrap();
 
         let result = solve_problem(&input).unwrap();
-        assert_eq!(result, 0);
+        assert_eq!(result, 33);
     }
 }
