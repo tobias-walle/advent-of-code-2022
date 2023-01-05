@@ -27,15 +27,14 @@ const TIME_IN_MINUTES: u32 = 24;
 
 fn solve_problem(input: &str) -> Result<i32> {
     let blueprints = parse_with_nom(input, parse)?;
-    let mut scores = vec![];
-    for blueprint in blueprints {
-        scores.push(thread::spawn(move || {
-            let best = find_optimal_solution_for_blueprint(&blueprint);
-            (blueprint, best.score())
-        }));
-    }
-    let result = scores
+    let result = blueprints
         .into_iter()
+        .map(|blueprint| {
+            thread::spawn(move || {
+                let best = find_optimal_solution_for_blueprint(&blueprint);
+                (blueprint, best.score())
+            })
+        })
         .map(|handle| {
             let (blueprint, score) = handle.join().unwrap();
             let blueprint_id = blueprint.id as i32;

@@ -26,21 +26,17 @@ fn main() -> Result<()> {
 const TIME_IN_MINUTES: u32 = 32;
 
 fn solve_problem(input: &str) -> Result<i32> {
-    let mut blueprints = parse_with_nom(input, parse)?;
-    if blueprints.len() > 3 {
-        blueprints = blueprints[..3].to_vec();
-    }
+    let blueprints = parse_with_nom(input, parse)?;
 
-    let mut scores = vec![];
-    for blueprint in blueprints {
-        scores.push(thread::spawn(move || {
-            let best = find_optimal_solution_for_blueprint(&blueprint);
-            (blueprint, best.score())
-        }));
-    }
-
-    let result = scores
+    let result = blueprints
         .into_iter()
+        .take(3)
+        .map(|blueprint| {
+            thread::spawn(move || {
+                let best = find_optimal_solution_for_blueprint(&blueprint);
+                (blueprint, best.score())
+            })
+        })
         .map(|handle| {
             let (blueprint, score) = handle.join().unwrap();
             let blueprint_id = blueprint.id;
@@ -48,6 +44,7 @@ fn solve_problem(input: &str) -> Result<i32> {
             score
         })
         .product();
+
     Ok(result)
 }
 
