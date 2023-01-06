@@ -1,0 +1,5 @@
+run problem file *flags:
+  cargo run {{flags}} -q --bin problem_{{problem}} {{file}}
+
+test:
+  cargo test
