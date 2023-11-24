@@ -99,7 +99,7 @@ impl Program {
 
     fn get_var(&self, name: &VariableName) -> Result<&Expression> {
         self.expressions
-            .get(&name)
+            .get(name)
             .with_context(|| format!("{name:?} not found"))
     }
 }

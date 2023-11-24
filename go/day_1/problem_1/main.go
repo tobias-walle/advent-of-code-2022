@@ -20,9 +20,8 @@ func main() {
 	current := elf{number: 1, calories: 0}
 	for {
 		line, eof, err := lines.Next()
-		if err != nil {
-			utils.PanicOnErr(err)
-		}
+    utils.PanicOnErr(err)
+
 		if line != "" {
 			// Add calories to current elf
 			intLine, err := strconv.Atoi(line)
